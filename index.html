@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ANON_NET // MAINFRAME_UPLINK</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: #020202; color: #00ff41; font-family: 'Courier New', Courier, monospace; display: flex; justify-content: center; align-items: center; height: 100vh; padding: 15px; overflow: hidden; }
+        .hidden { display: none !important; }
+        
+        body::before { content: " "; display: block; position: fixed; top: 0; left: 0; bottom: 0; right: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); z-index: 99999; background-size: 100% 3px, 3px 100%; pointer-events: none; }
+
+        .auth-box { width: 100%; max-width: 400px; background-color: #050505; border: 2px solid #00ff41; padding: 30px; box-shadow: 0 0 20px rgba(0, 255, 65, 0.2); position: relative; }
+        .auth-box::after { content: "SYS_AUTH_v4.88"; position: absolute; bottom: -10px; right: 10px; background: #020202; padding: 0 5px; font-size: 0.65rem; color: #005511; }
+        .auth-title { font-size: 1.1rem; text-align: center; margin-bottom: 25px; letter-spacing: 2px; border-bottom: 1px dashed #00ff41; padding-bottom: 12px; }
+        
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 0.75rem; margin-bottom: 6px; letter-spacing: 1px; color: #00aa33; }
+        .form-group input { width: 100%; background: #000; border: 1px solid #005511; padding: 12px; color: #00ff41; font-family: 'Courier New', monospace; font-size: 1rem; outline: none; transition: border 0.3s; }
+        .form-group input:focus { border-color: #00ff41; box-shadow: 0 0 5px rgba(0, 255, 65, 0.4); }
+        
+        .error-msg { color: #ff3333; font-size: 0.8rem; margin-bottom: 15px; text-align: center; background: rgba(255,0,0,0.1); border: 1px solid #ff3333; padding: 8px; }
+        .btn { width: 100%; background-color: #00ff41; color: #000; border: none; padding: 12px; font-family: 'Courier New', monospace; font-size: 0.85rem; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+        .btn:hover { background-color: #00cc33; box-shadow: 0 0 10px rgba(0,255,65,0.5); }
+
+        .terminal { width: 100%; max-width: 1100px; height: 90vh; background-color: #040404; border: 2px solid #00ff41; display: flex; flex-direction: column; box-shadow: 0 0 25px rgba(0,255,65,0.15); }
+        .terminal-header { background-color: #00ff41; color: #000; padding: 8px 15px; font-weight: bold; font-size: 0.85rem; display: flex; justify-content: space-between; letter-spacing: 1px; }
+        
+        .main-grid { display: flex; flex: 1; overflow: hidden; }
+        .chat-log { flex: 2.3; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: #010101; border-right: 1px solid #004411; }
+        
+        .sidebars-container { flex: 1; display: flex; flex-direction: column; overflow-y: auto; background: #030303; }
+        .sidebar-section { padding: 15px; border-bottom: 1px solid #004411; }
+        .sidebar-title { font-size: 0.75rem; letter-spacing: 1px; border-bottom: 1px dashed #00ff41; padding-bottom: 4px; margin-bottom: 12px; color: #00aa33; font-weight: bold; }
+        
+        .list-container { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+        .clickable-item { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 6px 8px; border: 1px solid transparent; background: #000; font-size: 0.85rem; }
+        .clickable-item:hover { border-color: #00ff41; background: rgba(0, 255, 65, 0.03); }
+        .clickable-item.active-dm-selection { background: rgba(0, 188, 255, 0.08); border-color: #00bcff; color: #00bcff; }
+
+        .inbox-node-row { border: 1px dashed #004411; padding: 8px; background: #000; font-size: 0.8rem; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+        .inbox-node-row:hover { border-color: #00bcff; }
+        .inbox-header-info { display: flex; justify-content: space-between; color: #00bcff; font-weight: bold; }
+        .inbox-preview-snippet { color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-style: italic; }
+
+        .user-info { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+        .status-dot { width: 6px; height: 6px; background-color: #00ff41; border-radius: 50%; display: inline-block; margin-right: 8px; box-shadow: 0 0 4px #00ff41; }
+        .empty-notice { font-size: 0.75rem; color: #004411; text-align: center; padding: 8px 0; font-style: italic; }
+        
+        .profile-data { font-size: 0.8rem; display: flex; flex-direction: column; gap: 6px; }
+        .profile-data div { display: flex; justify-content: space-between; border-bottom: 1px dotted #002200; padding-bottom: 2px; }
+        .profile-data span { color: #fff; font-weight: bold; }
+        
+        .message { line-height: 1.5; word-break: break-word; font-size: 0.9rem; }
+        .system-msg { color: #ff3333; font-style: italic; opacity: 0.9; }
+        .user-msg { color: #00ff41; }
+        .guest-msg { color: #a3ffa3; }
+        .private-msg { color: #00bcff; text-shadow: 0 0 3px rgba(0, 188, 255, 0.4); }
+        
+        .input-area { border-top: 2px solid #00ff41; padding: 15px; display: flex; align-items: center; background-color: #000; }
+        .prompt { margin-right: 12px; font-weight: bold; white-space: nowrap; color: #00ff41; }
+        #message-input { flex: 1; background: transparent; border: none; color: #00ff41; font-family: 'Courier New', monospace; font-size: 1rem; outline: none; }
+
+        .crypto-overlay-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(2,2,2,0.95); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .crypto-terminal-card { width: 100%; max-width: 420px; background: #000; border: 2px solid #ff3333; padding: 25px; box-shadow: 0 0 20px rgba(255,51,51,0.2); }
+        
+        .groups-page-layout { width: 100%; max-width: 1100px; height: 90vh; background-color: #040404; border: 2px solid #00ff41; display: flex; flex-direction: column; padding: 25px; }
+        .page-title-banner { font-size: 1.1rem; border-bottom: 1px dashed #00ff41; padding-bottom: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; letter-spacing: 1px; }
+        .groups-grid-matrix { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 15px; overflow-y: auto; flex: 1; padding-right: 8px; }
+        
+        .group-card-node { background: #000; border: 1px solid #004411; padding: 20px 15px; display: flex; flex-direction: column; gap: 6px; position: relative; transition: all 0.2s ease; }
+        .group-card-node.clickable-card { cursor: pointer; }
+        .group-card-node.clickable-card:hover { border-color: #00ff41; background: rgba(0,255,65,0.02); }
+        .group-card-node.current-room-highlight { border-color: #ffff00; color: #ffff00; }
+        
+        .card-lock-status { font-size: 0.7rem; color: #ff3333; font-weight: bold; text-transform: uppercase; }
+        .card-occupancy-count { font-size: 0.75rem; color: #008822; margin-top: 4px; }
+        
+        .admin-action-btn { background: #ff3333; color: #000; font-family: monospace; font-size: 0.65rem; font-weight: bold; border: none; padding: 2px 6px; cursor: pointer; text-transform: uppercase; }
+        .admin-action-btn:hover { background: #ff7777; }
+        .admin-card-controls { display: flex; gap: 8px; margin-top: 8px; border-top: 1px dashed #004411; padding-top: 8px; }
+
+        .navigation-back-strip { background: #111; border: 1px solid #00ff41; padding: 10px 15px; margin-bottom: 20px; display: flex; align-items: center; cursor: pointer; color: #00ff41; font-weight: bold; font-size: 0.85rem; letter-spacing: 1px; transition: all 0.2s ease; }
+        .navigation-back-strip:hover { background: #00ff41; color: #000; box-shadow: 0 0 12px rgba(0,255,65,0.4); }
+
+        @keyframes pulseGold { 0% { box-shadow: 0 0 5px rgba(255,213,0,0.2), inset 0 0 5px rgba(255,213,0,0.1); } 50% { box-shadow: 0 0 20px rgba(255,213,0,0.5), inset 0 0 15px rgba(255,213,0,0.25); } 100% { box-shadow: 0 0 5px rgba(255,213,0,0.2), inset 0 0 5px rgba(255,213,0,0.1); } }
+        @keyframes pulseCrimson { 0% { box-shadow: 0 0 5px rgba(255,51,51,0.2), inset 0 0 5px rgba(255,51,51,0.1); } 50% { box-shadow: 0 0 20px rgba(255,51,51,0.5), inset 0 0 15px rgba(255,51,51,0.25); } 100% { box-shadow: 0 0 5px rgba(255,51,51,0.2), inset 0 0 5px rgba(255,51,51,0.1); } }
+        @keyframes pulsePurple { 0% { box-shadow: 0 0 5px rgba(176,38,255,0.2), inset 0 0 5px rgba(176,38,255,0.1); } 50% { box-shadow: 0 0 20px rgba(176,38,255,0.5), inset 0 0 15px rgba(176,38,255,0.25); } 100% { box-shadow: 0 0 5px rgba(176,38,255,0.2), inset 0 0 5px rgba(176,38,255,0.1); } }
+
+        .group-card-node.tier-royal { border: 2px dashed #ffd700; background: linear-gradient(145deg, #0d0a00, #000000); animation: pulseGold 3s infinite; transform: scale(1.02); margin-bottom: 2px; }
+        .group-card-node.tier-royal strong { color: #ffd700; text-shadow: 0 0 8px rgba(255, 215, 0, 0.7); font-size: 1.05rem; }
+        .group-card-node.tier-royal::before { content: "👑 CLASS_MAX_PRESTIGE"; position: absolute; top: -10px; right: 10px; background: #ffd700; color: #000; font-size: 0.55rem; padding: 1px 4px; font-weight: bold; }
+
+        .group-card-node.tier-lords { border: 2px dashed #ff3333; background: linear-gradient(145deg, #0f0202, #000000); animation: pulseCrimson 3s infinite; transform: scale(1.02); margin-bottom: 2px; }
+        .group-card-node.tier-lords strong { color: #ff3333; text-shadow: 0 0 8px rgba(255, 51, 51, 0.7); font-size: 1.05rem; }
+        .group-card-node.tier-lords::before { content: "🔺 SECTOR_OVERLORDS"; position: absolute; top: -10px; right: 10px; background: #ff3333; color: #000; font-size: 0.55rem; padding: 1px 4px; font-weight: bold; }
+
+        .group-card-node.tier-family { border: 2px dashed #b026ff; background: linear-gradient(145deg, #090012, #000000); animation: pulsePurple 3s infinite; transform: scale(1.02); margin-bottom: 2px; }
+        .group-card-node.tier-family strong { color: #b026ff; text-shadow: 0 0 8px rgba(176, 38, 255, 0.7); font-size: 1.05rem; }
+        .group-card-node.tier-family::before { content: "👁️ CORE_SYNDICATE"; position: absolute; top: -10px; right: 10px; background: #b026ff; color: #000; font-size: 0.55rem; padding: 1px 4px; font-weight: bold; }
+
+        .invite-action-area { display: flex; gap: 5px; }
+        .invite-action-area input { flex: 1; background: #000; border: 1px solid #005511; font-family: monospace; font-size: 0.75rem; color: #00ff41; padding: 5px; outline: none; }
+        .invite-action-area input:focus { border-color: #00ff41; }
+        .invite-action-area button { background: #00ff41; color: #000; border: none; font-family: monospace; font-size: 0.7rem; font-weight: bold; padding: 5px 8px; cursor: pointer; }
+        .invite-action-area button:hover { background: #00cc33; }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <div id="crypto-override-modal" class="crypto-overlay-backdrop hidden">
+        <div class="crypto-terminal-card">
+            <div style="color:#ff3333; font-weight:bold; font-size:1.1rem; text-align:center; margin-bottom:15px; border-bottom:1px solid #ff3333; padding-bottom:8px;">⚠️ ENCRYPTED FACTION NODE ⚠️</div>
+            <p style="font-size:0.8rem; margin-bottom:20px; color:#ffaaaa; text-align:center; line-height:1.4;">
+                Target route link restricted. Authorization key required for access to sector: <span id="crypto-target-sector-display" style="color:#fff; font-weight:bold;">---</span>
+            </p>
+            <div class="form-group">
+                <label style="color:#ff3333;">DECRYPTION ACCESS PIN</label>
+                <input type="password" id="crypto-override-passkey" placeholder="Enter PIN" style="border-color:#ff3333; color:#ff3333;">
+            </div>
+            <div id="crypto-modal-error-log" class="error-msg hidden">INVALID ACCESS ATTEMPT</div>
+            <div style="display:flex; gap:12px; margin-top:10px;">
+                <button onclick="submitCryptoPasskeyCheck()" class="btn" style="background:#ff3333; color:#000;">Bypass Link</button>
+                <button onclick="closeCryptoOverrideModal()" class="btn" style="background:#222; color:#ff3333; border:1px solid #ff3333;">Abort</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="login-box" class="auth-box">
+        <div class="auth-title">:: SYSTEM AUTHENTICATION ::</div>
+        <form id="login-form" onsubmit="connectToGrid(event)">
+            <div class="form-group">
+                <label>OPERATIVE CONSOLE HANDLE</label>
+                <input type="text" id="login-user" required autocomplete="off" autofocus>
+            </div>
+            <div class="form-group">
+                <label>NETWORK PASSKEY PIN</label>
+                <input type="password" id="login-pass" required autocomplete="off">
+            </div>
+            <div id="error-container" class="error-msg hidden">ACCESS DENIED</div>
+            <button type="submit" id="login-submit-btn" class="btn">INITIALIZING COMM_STREAM...</button>
+        </form>
+    </div>
+
+    <div id="chat-interface" class="terminal hidden">
+        <div class="terminal-header">
+            <span id="chat-mode-indicator">CHANNEL // General-Lobby</span>
+            <span id="session-handle">CONSOLE // SECURE_LINK</span>
+        </div>
+        
+        <div class="main-grid">
+            <div class="chat-log" id="chat-log"></div>
+            
+            <div class="sidebars-container">
+                <div class="sidebar-section">
+                    <button class="btn" style="padding: 8px; font-size: 0.75rem;" onclick="navigateToGroupsPage()">⚡ ACCESS NETWORK MAIN-DIRECTORY</button>
+                </div>
+
+                <!-- Invitation Section -->
+                <div class="sidebar-section" id="group-invitation-sidebar-panel">
+                    <div class="sidebar-title">⚡ SEND SECTOR INVITATION</div>
+                    <div class="invite-action-area">
+                        <input type="text" id="invite-target-input" placeholder="Target Handle..." autocomplete="off">
+                        <button onclick="dispatchSectorInvitation()">INVITE</button>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-title">OPERATIVE_METRICS</div>
+                    <div class="profile-data">
+                        <div>HANDLE: <span id="prof-handle">----</span></div>
+                        <div>GRID_LEVEL: <span id="prof-lvl">--</span></div>
+                        <div>ROLE_CLASS: <span id="prof-role">----</span></div>
+                        <div>CLEARANCE: <span id="prof-clear">----</span></div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section hidden" id="admin-database-registry-panel">
+                    <div class="sidebar-title" style="color: #ff3333; border-color: #ff3333;">ENCRYPTED_DB_DUMP</div>
+                    <ul class="list-container" id="admin-credentials-injector" style="font-size: 0.75rem; color:#ff7777;">
+                    </ul>
+                </div>
+
+                <div class="sidebar-section" style="max-height: 200px; overflow-y: auto;">
+                    <div class="sidebar-title" id="sidebar-list-title">ONLINE_NODES</div>
+                    <ul class="list-container" id="server-online-users-injector">
+                        <div class="empty-notice">Scanning frequencies...</div>
+                    </ul>
+                    <button onclick="clearPrivateDMTargetLock()" class="btn" id="return-global-btn" style="padding: 4px; font-size:0.7rem; margin-top:8px; background:#003311; color:#00ff41; border: 1px solid #00ff41; display:none;">RETURN TO FACTION MAIN-LINE</button>
+                </div>
+
+                <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; overflow-y: auto;">
+                    <div class="sidebar-title" style="color: #00bcff; border-color: #00bcff;">SECURE_TUNNEL_INBOX</div>
+                    <div class="list-container" id="inbox-messages-injector">
+                        <div class="empty-notice">No unrouted secure lines.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <span class="prompt" id="terminal-prompt">anon@mainframe:~$</span>
+            <input type="text" id="message-input" placeholder="Inject message protocol..." autocomplete="off">
+        </div>
+    </div>
+
+    <div id="groups-directory-page" class="groups-page-layout hidden">
+        <div class="page-title-banner">
+            <span>NETWORK_MATRIX_ROUTING_DIRECTORY.</span>
+            <button class="btn" style="width:auto; margin:0; padding:5px 15px; font-size:0.75rem; border:1px solid #00ff41; background:#000; color:#00ff41;" onclick="returnToChatFromGroupsPage()">[DISCONNECT DIRECTORY]</button>
+        </div>
+        
+        <div class="navigation-back-strip" onclick="returnToChatFromGroupsPage()">
+            ← BACK      {This entire website was created by kelvine Goodluck Khavochi in 2026,june,6th ig= silentmastermind }
+        </div>
+
+        <div class="groups-grid-matrix" id="groups-page-items-injector"></div>
+    </div>
+
+    <script>
+        let SecureAuthRegistry = { users: {} };
+        let socket = null;
+        let isUplinkReady = false;
+
+        let currentActiveUser = "";
+        let currentActiveRoom = "General-Lobby";
+        let privateDMTargetUser = null; 
+        let pendingCryptoTargetSector = ""; 
+
+        let groupRoomLogsHistory = { "General-Lobby": [] }; 
+        let privateMessageInbox = {}; 
+        let sectorInvitationInbox = []; // Holds inbound group bypass requests
+        let cachedGlobalUsersArray = [];
+        let globalRoomsOccupancyData = {}; 
+        let rawAvailableRoomsCachedList = []; 
+
+        const chatLog = document.getElementById('chat-log');
+        const messageInput = document.getElementById('message-input');
+        const errorContainer = document.getElementById('error-container');
+        const loginSubmitBtn = document.getElementById('login-submit-btn');
+        const serverOnlineUsersInjector = document.getElementById('server-online-users-injector');
+        const inboxMessagesInjector = document.getElementById('inbox-messages-injector');
+        const chatModeIndicator = document.getElementById('chat-mode-indicator');
+        const sidebarListTitle = document.getElementById('sidebar-list-title');
+        const returnGlobalBtn = document.getElementById('return-global-btn');
+        const chatInterface = document.getElementById('chat-interface');
+        const groupsDirectoryPage = document.getElementById('groups-directory-page');
+        const groupsPageItemsInjector = document.getElementById('groups-page-items-injector');
+        const cryptoModal = document.getElementById('crypto-override-modal');
+        const cryptoInput = document.getElementById('crypto-override-passkey');
+        const cryptoDisplay = document.getElementById('crypto-target-sector-display');
+        const cryptoError = document.getElementById('crypto-modal-error-log');
+        const inviteTargetInput = document.getElementById('invite-target-input');
+        const invitationPanel = document.getElementById('group-invitation-sidebar-panel');
+
+        function initializeSystemMatrix() {
+            if (typeof io === 'undefined') {
+                loginSubmitBtn.innerText = "LINK SYSTEM FAILURE";
+                errorContainer.innerText = "CORE TERMINAL ERROR: Cannot fetch tracking socket.";
+                errorContainer.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                socket = io();
+                
+                socket.on('connect', () => {
+                    isUplinkReady = true;
+                    loginSubmitBtn.innerText = "ACCESS GLOBAL NETWORK MAIN-CONSOLE";
+                    errorContainer.classList.add('hidden');
+                });
+
+                socket.on('connect_error', () => {
+                    isUplinkReady = false;
+                    loginSubmitBtn.innerText = "LINK ROUTE RETRYING...";
+                });
+
+                bindApplicationEvents();
+            } catch (err) {
+                loginSubmitBtn.innerText = "PROXY REJECTED";
+            }
+        }
+
+        function bindApplicationEvents() {
+            socket.on('clear-chat-log', () => { if (!privateDMTargetUser) chatLog.innerHTML = ''; });
+            
+            socket.on('login-result', (data) => {
+                if (data.success) {
+                    currentActiveUser = data.user;
+                    document.getElementById('login-box').classList.add('hidden');
+                    chatInterface.classList.remove('hidden');
+                    document.getElementById('prof-handle').innerText = currentActiveUser.toUpperCase();
+                    document.getElementById('prof-lvl').innerText = data.profile.level;
+                    document.getElementById('prof-role').innerText = data.profile.role.toUpperCase();
+                    document.getElementById('prof-clear').innerText = data.profile.clearance;
+                    document.getElementById('session-handle').innerText = `CONSOLE // ${currentActiveUser.toUpperCase()}`;
+                    updateTerminalPrompt();
+                    
+                    socket.emit('register-user', currentActiveUser);
+                    socket.emit('get-available-rooms'); 
+                    setTimeout(() => messageInput.focus(), 50);
+                } else {
+                    errorContainer.innerText = data.error;
+                    errorContainer.classList.remove('hidden');
+                    document.getElementById('login-pass').value = '';
+                }
+            });
+
+            socket.on('system-message', (data) => { 
+                const payload = { type: 'system', text: `[SYSTEM_ALERT] ${data}` };
+                if (!groupRoomLogsHistory[currentActiveRoom]) groupRoomLogsHistory[currentActiveRoom] = [];
+                groupRoomLogsHistory[currentActiveRoom].push(payload);
+                if (!privateDMTargetUser) appendMessageElement(payload.text, 'system-msg');
+            });
+
+            socket.on('load-history', (historyArray) => {
+                groupRoomLogsHistory[currentActiveRoom] = [];
+                historyArray.forEach(data => { groupRoomLogsHistory[currentActiveRoom].push({ sender: data.sender, text: data.text }); });
+                if (!privateDMTargetUser) rebuildChatDisplayLogs();
+            });
+
+            socket.on('password-result', (data) => {
+                if (data.success) executeRoomSwitchSequence(data.roomName);
+                else { cryptoError.innerText = data.error; cryptoError.classList.remove('hidden'); cryptoInput.value = ""; cryptoInput.focus(); }
+            });
+
+            socket.on('broadcast-message', (data) => {
+                if (!groupRoomLogsHistory[currentActiveRoom]) groupRoomLogsHistory[currentActiveRoom] = [];
+                groupRoomLogsHistory[currentActiveRoom].push({ sender: data.sender, text: data.text });
+                if (!privateDMTargetUser) {
+                    appendMessageElement(data.text, data.sender === currentActiveUser ? 'user-msg' : 'guest-msg', data.sender);
+                }
+            });
+
+            socket.on('receive-private-message', (data) => {
+                const senderKey = data.sender.toLowerCase();
+                if (!privateMessageInbox[senderKey]) privateMessageInbox[senderKey] = [];
+                privateMessageInbox[senderKey].push({ sender: data.sender, text: data.text });
+                if (privateDMTargetUser && privateDMTargetUser.toLowerCase() === senderKey) {
+                    appendMessageElement(data.text, 'private-msg', data.sender);
+                } else {
+                    appendMessageElement(`[TUNNEL] Inbound encrypted link established from node: ${data.sender}.`, 'system-msg');
+                }
+                renderGlobalUsersSidebarHTML(); renderInboxModuleHTML();
+            });
+
+            // HANDLER FOR INCOMING INVITATIONS
+            socket.on('receive-sector-invite', (data) => {
+                sectorInvitationInbox.push(data);
+                appendMessageElement(`[INBOUND_INVITE] Operative ${data.sender} dispatched a gateway pass to #${data.roomName.toUpperCase().replace(/-/g, '_')}.`, 'system-msg');
+                renderInboxModuleHTML();
+            });
+
+            socket.on('global-user-list-update', (nodesArray) => {
+                cachedGlobalUsersArray = nodesArray; 
+                renderGlobalUsersSidebarHTML(); 
+                renderInboxModuleHTML();
+            });
+
+            socket.on('sync-auth-registry-database', (serverDatabaseMatrix) => {
+                SecureAuthRegistry.users = serverDatabaseMatrix;
+                if (currentActiveUser.toLowerCase() === 'admin') renderAdminCredentialRegistry();
+            });
+
+            socket.on('global-room-occupancy-update', (countMap) => {
+                globalRoomsOccupancyData = countMap; if(!groupsDirectoryPage.classList.contains('hidden')) renderGroupsMatrixGridHTML();
+            });
+
+            socket.on('available-rooms-list', (roomsArray) => {
+                rawAvailableRoomsCachedList = roomsArray; renderGroupsMatrixGridHTML();
+            });
+        }
+
+        function connectToGrid(e) {
+            e.preventDefault();
+            if (!isUplinkReady) return;
+            errorContainer.classList.add('hidden');
+            const user = document.getElementById('login-user').value.trim();
+            const pass = document.getElementById('login-pass').value.trim();
+            socket.emit('authenticate-user', { user: user, pass: pass });
+        }
+
+        function renderAdminCredentialRegistry() {
+            const panel = document.getElementById('admin-database-registry-panel');
+            const injector = document.getElementById('admin-credentials-injector');
+            panel.classList.remove('hidden'); injector.innerHTML = '';
+            Object.keys(SecureAuthRegistry.users).forEach(key => {
+                const li = document.createElement('li');
+                li.style.borderBottom = "1px dotted #220000"; li.style.padding = "4px 0";
+                li.innerHTML = `NODE: <span style="color:#fff">${key}</span> // PIN: <span style="color:#ff3333">${SecureAuthRegistry.users[key].pin}</span>`;
+                injector.appendChild(li);
+            });
+        }
+
+        function updateTerminalPrompt() {
+            const prompt = document.getElementById('terminal-prompt');
+            if (privateDMTargetUser) {
+                prompt.innerText = `[dm@${privateDMTargetUser.toLowerCase()}]:~$`;
+                chatModeIndicator.innerText = `TUNNEL // ${privateDMTargetUser.toUpperCase()}`;
+                returnGlobalBtn.style.display = "block";
+                invitationPanel.classList.add('hidden'); // Hide invitation box inside generic DMs
+            } else {
+                prompt.innerText = `[${currentActiveUser.toLowerCase()}@${currentActiveRoom.toLowerCase()}]:~$`;
+                chatModeIndicator.innerText = `SECTOR // ${currentActiveRoom.toUpperCase()}`;
+                returnGlobalBtn.style.display = "none";
+                invitationPanel.classList.remove('hidden');
+            }
+        }
+
+        function navigateToGroupsPage() { chatInterface.classList.add('hidden'); groupsDirectoryPage.classList.remove('hidden'); socket.emit('get-available-rooms'); }
+        function returnToChatFromGroupsPage() { groupsDirectoryPage.classList.add('hidden'); chatInterface.classList.remove('hidden'); messageInput.focus(); }
+
+        function dispatchSectorInvitation() {
+            const target = inviteTargetInput.value.trim();
+            if (!target) return;
+            if (target.toLowerCase() === currentActiveUser.toLowerCase()) {
+                alert("NAVIGATION LOOP: You cannot pass an invitation matrix to yourself.");
+                return;
+            }
+            socket.emit('send-sector-invite', { targetUser: target });
+            inviteTargetInput.value = '';
+        }
+
+        function acceptGroupBypassInvitation(index, roomTargetName) {
+            sectorInvitationInbox.splice(index, 1); // Extract and clear token
+            executeRoomSwitchSequence(roomTargetName);
+        }
+
+        function switchGroupChannel(targetRoomName, requiresPassword) {
+            if (currentActiveUser.toLowerCase() === 'admin') { executeRoomSwitchSequence(targetRoomName); return; }
+            if (requiresPassword && targetRoomName !== currentActiveRoom) {
+                pendingCryptoTargetSector = targetRoomName; cryptoDisplay.innerText = targetRoomName.toUpperCase();
+                cryptoError.classList.add('hidden'); cryptoInput.value = ""; cryptoModal.classList.remove('hidden'); cryptoInput.focus(); return;
+            }
+            executeRoomSwitchSequence(targetRoomName);
+        }
+
+        function submitCryptoPasskeyCheck() {
+            const passAttempt = cryptoInput.value.trim(); if(!passAttempt) return;
+            socket.emit('verify-room-password', { roomName: pendingCryptoTargetSector, password: passAttempt });
+        }
+        function closeCryptoOverrideModal() { cryptoModal.classList.add('hidden'); pendingCryptoTargetSector = ""; }
+        cryptoInput.addEventListener('keydown', function(event) { if(event.key === 'Enter') submitCryptoPasskeyCheck(); });
+
+        function executeRoomSwitchSequence(targetRoomName) {
+            privateDMTargetUser = null; currentActiveRoom = targetRoomName;
+            if (!groupRoomLogsHistory[currentActiveRoom]) groupRoomLogsHistory[currentActiveRoom] = [];
+            cryptoModal.classList.add('hidden'); updateTerminalPrompt(); groupsDirectoryPage.classList.add('hidden'); chatInterface.classList.remove('hidden');
+            socket.emit('join-room', targetRoomName);
+        }
+
+        function initiatePrivateDMLink(targetUser) {
+            if (targetUser.toLowerCase() === currentActiveUser.toLowerCase()) return;
+            privateDMTargetUser = targetUser; sidebarListTitle.innerText = `ROUTE // ${targetUser.toUpperCase()}`; updateTerminalPrompt();
+            rebuildChatDisplayLogs(); renderGlobalUsersSidebarHTML(); renderInboxModuleHTML(); messageInput.focus();
+        }
+
+        function clearPrivateDMTargetLock() { privateDMTargetUser = null; sidebarListTitle.innerText = "ONLINE_NODES"; updateTerminalPrompt(); rebuildChatDisplayLogs(); renderGlobalUsersSidebarHTML(); }
+        function adminKickUser(username) { if (confirm(`Purge network interface loop for user: ${username}?`)) socket.emit('admin-delete-user', username); }
+        function adminToggleFreezeRoom(roomName) { socket.emit('admin-freeze-room', roomName); }
+
+        function rebuildChatDisplayLogs() {
+            chatLog.innerHTML = '';
+            if (privateDMTargetUser) {
+                const dmHistory = privateMessageInbox[privateDMTargetUser.toLowerCase()] || [];
+                dmHistory.forEach(msg => { appendMessageElement(msg.text, msg.sender.toLowerCase() === currentActiveUser.toLowerCase() ? 'user-msg' : 'private-msg', msg.sender); });
+            } else {
+                const roomLogs = groupRoomLogsHistory[currentActiveRoom] || [];
+                roomLogs.forEach(msg => { if (msg.type === 'system') appendMessageElement(msg.text, 'system-msg'); else appendMessageElement(msg.text, msg.sender === currentActiveUser ? 'user-msg' : 'guest-msg', msg.sender); });
+            }
+        }
+
+        function appendMessageElement(text, type, sender = "") {
+            const messageDiv = document.createElement('div'); messageDiv.classList.add('message', type);
+            if (sender) { const sEl = document.createElement('strong'); sEl.textContent = `<${sender.toLowerCase()}>: `; messageDiv.appendChild(sEl); messageDiv.appendChild(document.createTextNode(text)); }
+            else { messageDiv.textContent = text; }
+            chatLog.appendChild(messageDiv); chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        messageInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                const userText = this.value.trim(); if (userText === '') return;
+                if (privateDMTargetUser) {
+                    socket.emit('private-message', { target: privateDMTargetUser, text: userText });
+                    const key = privateDMTargetUser.toLowerCase(); if (!privateMessageInbox[key]) privateMessageInbox[key] = [];
+                    privateMessageInbox[key].push({ sender: currentActiveUser, text: userText });
+                    appendMessageElement(userText, 'user-msg', currentActiveUser);
+                } else { socket.emit('chat-message', userText); }
+                this.value = '';
+            }
+        });
+
+        function renderGlobalUsersSidebarHTML() {
+            serverOnlineUsersInjector.innerHTML = '';
+            if (cachedGlobalUsersArray.length === 0) { 
+                serverOnlineUsersInjector.innerHTML = '<div class="empty-notice">No tracking frequencies found.</div>'; 
+                return; 
+            }
+            
+            cachedGlobalUsersArray.forEach(node => {
+                const isMe = node.id === socket.id;
+                const li = document.createElement('li'); 
+                li.className = 'clickable-item';
+                
+                if (privateDMTargetUser && privateDMTargetUser.toLowerCase() === node.handle.toLowerCase()) {
+                    li.classList.add('active-dm-selection');
+                }
+                
+                if (!isMe) {
+                    li.onclick = (e) => { if (e.target.tagName !== 'BUTTON') initiatePrivateDMLink(node.handle); };
+                } else {
+                    li.style.cursor = 'default';
+                    li.style.background = 'rgba(0, 255, 65, 0.02)';
+                }
+                
+                let adminBtn = (currentActiveUser.toLowerCase() === 'admin' && !isMe) ? `<button class="admin-action-btn" onclick="adminKickUser('${node.handle}')">KILL</button>` : "";
+                let nameLabel = isMe ? `${node.handle.toLowerCase()} (you)` : node.handle.toLowerCase();
+                let dotStyle = isMe ? 'background-color: #00bcff; box-shadow: 0 0 5px #00bcff;' : '';
+                
+                li.innerHTML = `<div class="user-info"><div><span class="status-dot" style="${dotStyle}"></span><span>${nameLabel}</span></div>${adminBtn}</div>`;
+                serverOnlineUsersInjector.appendChild(li);
+            });
+        }
+
+        function renderInboxModuleHTML() {
+            inboxMessagesInjector.innerHTML = ''; 
+            let items = 0;
+
+            // Render Invitation Gateway Overrides
+            sectorInvitationInbox.forEach((invite, idx) => {
+                items++;
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'inbox-node-row';
+                itemDiv.style.borderColor = '#ffd700';
+                itemDiv.innerHTML = `
+                    <div class="inbox-header-info"><span style="color:#ffd700;">INVITE // FROM_${invite.sender.toUpperCase()}</span></div>
+                    <div class="inbox-preview-snippet" style="color:#fff;">Sector Pass: #${invite.roomName.toUpperCase().replace(/-/g, '_')}</div>
+                    <button class="btn" style="padding:4px; font-size:0.65rem; margin-top:5px; background:#ffd700; color:#000;" onclick="acceptGroupBypassInvitation(${idx}, '${invite.roomName}')"><b>[ACCEPT INVITATION]</b></button>
+                `;
+                inboxMessagesInjector.appendChild(itemDiv);
+            });
+
+            // Render DM Pipelines
+            Object.keys(privateMessageInbox).forEach(senderLowerName => {
+                const stack = privateMessageInbox[senderLowerName];
+                if (stack && stack.length > 0 && (!privateDMTargetUser || privateDMTargetUser.toLowerCase() !== senderLowerName)) {
+                    items++; 
+                    const accurateName = cachedGlobalUsersArray.find(u => u.handle.toLowerCase() === senderLowerName)?.handle || senderLowerName;
+                    const itemDiv = document.createElement('div'); itemDiv.className = 'inbox-node-row'; itemDiv.onclick = () => initiatePrivateDMLink(accurateName);
+                    itemDiv.innerHTML = `<div class="inbox-header-info"><span>TUNNEL // ${accurateName.toLowerCase()}</span><span style="color:#00bcff; font-size:0.65rem;">[DECRYPTED]</span></div><div class="inbox-preview-snippet">${stack[stack.length - 1].text}</div>`;
+                    inboxMessagesInjector.appendChild(itemDiv);
+                }
+            });
+
+            if (items === 0) inboxMessagesInjector.innerHTML = '<div class="empty-notice">No unrouted secure lines.</div>';
+        }
+
+        function renderGroupsMatrixGridHTML() {
+            groupsPageItemsInjector.innerHTML = '';
+            rawAvailableRoomsCachedList.forEach(roomObj => {
+                const div = document.createElement('div'); div.className = 'group-card-node';
+                const isActiveCurrent = roomObj.name === currentActiveRoom && !privateDMTargetUser;
+                const isAdmin = currentActiveUser.toLowerCase() === 'admin';
+                
+                if (roomObj.tier && roomObj.tier !== "standard") {
+                    div.classList.add(`tier-${roomObj.tier}`);
+                }
+                
+                if(isActiveCurrent) div.classList.add('current-room-highlight');
+                if (!roomObj.frozen || isAdmin) { div.classList.add('clickable-card'); div.onclick = (e) => { if (e.target.tagName !== 'BUTTON') switchGroupChannel(roomObj.name, roomObj.requiresPassword); }; }
+                
+                let lockStateLabel = roomObj.requiresPassword ? '<span class="card-lock-status">🔒 FACTION ENCRYPTED</span>' : '<span class="card-lock-status" style="color:#008822">🔓 UNLOCKED FREQUENCY</span>';
+                if (roomObj.frozen) lockStateLabel = '<span class="card-lock-status" style="color:#ff3333; background:rgba(255,0,0,0.15); padding:2px; text-align:center;">❄️ SYSTEM ICE LOCK</span>';
+                else if(isActiveCurrent) lockStateLabel = '<span class="card-lock-status" style="color:#ffff00">⚡ ACTIVE ROUTE CORE</span>';
+                
+                let adminControlsHtml = isAdmin ? `<div class="admin-card-controls"><button class="admin-action-btn" style="background:#ffff00" onclick="adminToggleFreezeRoom('${roomObj.name}')">${roomObj.frozen ? "THAW" : "ICE"}</button></div>` : "";
+                div.innerHTML = `<strong># ${roomObj.name.toUpperCase().replace(/-/g, '_')}</strong>${lockStateLabel}<span class="card-occupancy-count" style="color:${(globalRoomsOccupancyData[roomObj.name] || 0) > 0 ? '#00ff41' : '#004411'}">[${globalRoomsOccupancyData[roomObj.name] || 0} OPERATIVES INJECTED]</span>${adminControlsHtml}`;
+                groupsPageItemsInjector.appendChild(div);
+            });
+        }
+
+        initializeSystemMatrix();
+    </script>
+</body>
+</html>
